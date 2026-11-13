@@ -1,0 +1,141 @@
+# The questions, as saved Virtual Cypher. Every walk starts from an anchor the engine can fetch (an
+# LEI, or the watch list) and names the conclusion on the way, which is what makes the evidence per
+# hop appear: each IS_SUBSIDIARY_OF edge the traversal fetched carries sourceId, sourceName and hop,
+# and the result envelope's AUDIT_TRAIL lists every claim.
+#
+# Written to the host's scoping rules (verified live 13 November 2026): a node variable is never
+# rebound (`coalesce(top, e) AS top` is refused), a node is re-matched only under its label, and the
+# chain's own members are checked by walking the edge again (`*1..6`) rather than by UNWINDing
+# `nodes(p)`, which the host cannot trace back to a MATCH.
+
+- name: ControlChainOf
+  description: >-
+    Who ultimately controls this entity, and through whom: the IS_SUBSIDIARY_OF chain from the LEI
+    to the entity that reports no parent, each hop citing the GLEIF record that asserts it, and
+    GLEIF's stated reason the chain ends where it does.
+  params:
+    lei:
+      type: string
+      description: "The entity's LEI, e.g. 549300G81RQKP7XW2N18 (Apple Operations International)."
+  cypher: |
+    MATCH (e:LegalEntity {lei: $lei})
+    OPTIONAL MATCH p = (e)-[:IS_SUBSIDIARY_OF*1..6]->(top:LegalEntity)
+    WHERE NOT (top)-[:IS_SUBSIDIARY_OF]->(:LegalEntity)
+    OPTIONAL MATCH (top)-[:NO_PARENT_REPORTED]->(x:ReportingException)
+    OPTIONAL MATCH (e)-[:NO_PARENT_REPORTED]->(xe:ReportingException)
+    RETURN e.lei AS lei,
+           e.legalName AS entity,
+           e.country AS country,
+           [n IN coalesce(nodes(p), [e]) | n.legalName] AS chain,
+           [n IN coalesce(nodes(p), [e]) | n.lei] AS chainLeis,
+           coalesce(length(p), 0) AS hops,
+           coalesce(top.lei, e.lei) AS ultimateParentLei,
+           coalesce(top.legalName, e.legalName) AS ultimateParent,
+           coalesce(top.country, e.country) AS ultimateParentCountry,
+           coalesce(x.reason, xe.reason) AS whyTheChainEnds,
+           [r IN coalesce(relationships(p), []) | r.sourceId] AS gleifRecords
+
+- name: ConsolidationEvidenceOf
+  description: >-
+    The GLEIF relationship record behind an entity's IS_SUBSIDIARY_OF edge: who consolidates it,
+    since when, under which accounting period, with what corroboration.
+  params:
+    lei:
+      type: string
+      description: "The consolidated entity's LEI."
+  cypher: |
+    MATCH (e:LegalEntity {lei: $lei})-[:CONSOLIDATION]->(r:ConsolidationRecord)
+    RETURN e.legalName AS entity, r.parentLei AS consolidatedBy, r.relationshipType AS relationship,
+           r.status AS status, r.since AS since, r.accountingPeriodStart AS accountingPeriodStart,
+           r.accountingPeriodEnd AS accountingPeriodEnd, r.corroboration AS corroboration,
+           r.corroborationDocuments AS corroboratedFrom, r.lastUpdated AS gleifLastUpdated
+
+- name: SubsidiariesOf
+  description: "The entities GLEIF records as directly consolidated by this one (FIBO: the entities it is controlling affiliate of)."
+  params:
+    lei:
+      type: string
+      description: "The parent's LEI, e.g. HWUPKR0MPOU8FGXBT394 (Apple Inc.)."
+  cypher: |
+    MATCH (p:LegalEntity {lei: $lei})-[:IS_CONTROLLING_AFFILIATE_OF]->(s:LegalEntity)
+    RETURN s.lei AS lei, s.legalName AS subsidiary, s.country AS country, s.status AS status, s.legalForm AS legalForm
+    ORDER BY s.country, s.legalName
+
+- name: SanctionsExposureOf
+  description: >-
+    Is this entity, or anything up its control chain, on OFAC's SDN list? Walks IS_SUBSIDIARY_OF to
+    the top, matches every name on the chain (the entity's own and each ancestor's) against the SDN
+    primary names and aliases, and reports each hit with which list matched. A hit is a lead to
+    confirm against OFAC's own search, never a finding; the match is an exact, case-insensitive name
+    comparison and nothing fuzzier.
+  params:
+    lei:
+      type: string
+      description: "The entity's LEI, e.g. 391200PKEUF3Y2NUMW25 (Rosneft Deutschland GmbH)."
+  cypher: |
+    MATCH (e:LegalEntity {lei: $lei})
+    OPTIONAL MATCH p = (e)-[:IS_SUBSIDIARY_OF*1..6]->(top:LegalEntity)
+    WHERE NOT (top)-[:IS_SUBSIDIARY_OF]->(:LegalEntity)
+    OPTIONAL MATCH (e)-[:NAMED_ON_SDN]->(s0:SanctionedParty)
+    OPTIONAL MATCH (e)-[:ALIAS_ON_SDN]->(a0:SanctionsAlias)-[:ALIAS_OF]->(t0:SanctionedParty)
+    OPTIONAL MATCH (e)-[:IS_SUBSIDIARY_OF*1..6]->(n:LegalEntity)-[:NAMED_ON_SDN]->(s1:SanctionedParty)
+    OPTIONAL MATCH (e)-[:IS_SUBSIDIARY_OF*1..6]->(m:LegalEntity)-[:ALIAS_ON_SDN]->(a1:SanctionsAlias)-[:ALIAS_OF]->(t1:SanctionedParty)
+    WITH e, p, top,
+         collect(DISTINCT CASE WHEN s0 IS NOT NULL THEN e.legalName + ' is listed as ' + s0.name + ' (' + s0.program + '), matched on its legal name' END)
+         + collect(DISTINCT CASE WHEN t0 IS NOT NULL THEN e.legalName + ' is listed as ' + t0.name + ' (' + t0.program + '), matched on the alias ' + a0.altName END)
+         + collect(DISTINCT CASE WHEN s1 IS NOT NULL THEN n.legalName + ' is listed as ' + s1.name + ' (' + s1.program + '), matched on its legal name' END)
+         + collect(DISTINCT CASE WHEN t1 IS NOT NULL THEN m.legalName + ' is listed as ' + t1.name + ' (' + t1.program + '), matched on the alias ' + a1.altName END) AS hits
+    WITH e, p, top, [h IN hits WHERE h IS NOT NULL] AS hits
+    RETURN e.lei AS lei, e.legalName AS entity, e.country AS country,
+           [n IN coalesce(nodes(p), [e]) | n.legalName] AS chain,
+           coalesce(top.legalName, e.legalName) AS ultimateParent,
+           coalesce(top.country, e.country) AS ultimateParentCountry,
+           size(hits) > 0 AS exposed, hits AS sanctionsHits
+
+- name: CounterpartyExposure
+  description: >-
+    The watch list (reference/counterparties.yml), each counterparty walked to its ultimate parent
+    and every name on the chain checked against OFAC's SDN list and aliases. The question on stage:
+    which of our counterparties are ultimately controlled by a sanctioned entity, and through which
+    chain. Exposed rows first.
+  cypher: |
+    MATCH (c:Counterparty)-[:IS]->(e:LegalEntity)
+    OPTIONAL MATCH p = (e)-[:IS_SUBSIDIARY_OF*1..6]->(top:LegalEntity)
+    WHERE NOT (top)-[:IS_SUBSIDIARY_OF]->(:LegalEntity)
+    OPTIONAL MATCH (e)-[:NAMED_ON_SDN]->(s0:SanctionedParty)
+    OPTIONAL MATCH (e)-[:ALIAS_ON_SDN]->(a0:SanctionsAlias)-[:ALIAS_OF]->(t0:SanctionedParty)
+    OPTIONAL MATCH (e)-[:IS_SUBSIDIARY_OF*1..6]->(n:LegalEntity)-[:NAMED_ON_SDN]->(s1:SanctionedParty)
+    OPTIONAL MATCH (e)-[:IS_SUBSIDIARY_OF*1..6]->(m:LegalEntity)-[:ALIAS_ON_SDN]->(a1:SanctionsAlias)-[:ALIAS_OF]->(t1:SanctionedParty)
+    WITH c, e, p, top,
+         collect(DISTINCT CASE WHEN s0 IS NOT NULL THEN e.legalName + ' is listed as ' + s0.name + ' (' + s0.program + '), matched on its legal name' END)
+         + collect(DISTINCT CASE WHEN t0 IS NOT NULL THEN e.legalName + ' is listed as ' + t0.name + ' (' + t0.program + '), matched on the alias ' + a0.altName END)
+         + collect(DISTINCT CASE WHEN s1 IS NOT NULL THEN n.legalName + ' is listed as ' + s1.name + ' (' + s1.program + '), matched on its legal name' END)
+         + collect(DISTINCT CASE WHEN t1 IS NOT NULL THEN m.legalName + ' is listed as ' + t1.name + ' (' + t1.program + '), matched on the alias ' + a1.altName END) AS hits
+    WITH c, e, p, top, [h IN hits WHERE h IS NOT NULL] AS hits
+    RETURN c.name AS counterparty, e.lei AS lei, e.country AS country,
+           [n IN coalesce(nodes(p), [e]) | n.legalName] AS chain,
+           coalesce(top.legalName, e.legalName) AS ultimateParent,
+           coalesce(top.country, e.country) AS ultimateParentCountry,
+           size(hits) > 0 AS exposed, hits AS sanctionsHits, c.note AS note
+    ORDER BY exposed DESC, counterparty
+
+- name: CounterpartyControlChains
+  description: >-
+    The watch list walked to its ultimate parents, without the sanctions join: who controls each
+    counterparty, through whom, and why each chain ends where it does. The GLEIF half of
+    CounterpartyExposure on its own, for a host whose tabular reader cannot yet read OFAC's
+    headerless files, and for the control question asked alone.
+  cypher: |
+    MATCH (c:Counterparty)-[:IS]->(e:LegalEntity)
+    OPTIONAL MATCH p = (e)-[:IS_SUBSIDIARY_OF*1..6]->(top:LegalEntity)
+    WHERE NOT (top)-[:IS_SUBSIDIARY_OF]->(:LegalEntity)
+    OPTIONAL MATCH (top)-[:NO_PARENT_REPORTED]->(x:ReportingException)
+    OPTIONAL MATCH (e)-[:NO_PARENT_REPORTED]->(xe:ReportingException)
+    RETURN c.name AS counterparty, e.lei AS lei, e.country AS country,
+           [n IN coalesce(nodes(p), [e]) | n.legalName] AS chain,
+           coalesce(length(p), 0) AS hops,
+           coalesce(top.legalName, e.legalName) AS ultimateParent,
+           coalesce(top.country, e.country) AS ultimateParentCountry,
+           coalesce(x.reason, xe.reason) AS whyTheChainEnds,
+           [r IN coalesce(relationships(p), []) | r.sourceId] AS gleifRecords
+    ORDER BY ultimateParentCountry, counterparty

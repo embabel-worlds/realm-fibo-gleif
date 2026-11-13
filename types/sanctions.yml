@@ -1,0 +1,65 @@
+# OFAC's Specially Designated Nationals list, read from OFAC's own published files, joined by NAME.
+#
+# OFAC names entities by name and alias, not by LEI, so this is the one weak join in the realm and
+# it is declared as such: a LegalEntity reaches a SanctionedParty when one of its GLEIF names (legal
+# or alternative) equals an SDN primary name (NAMED_ON_SDN) or an SDN alias (ALIAS_ON_SDN), compared
+# case-insensitively and trimmed, nothing fuzzier. The view says which of the two matched. A match
+# is a lead to review against OFAC's own search, never a finding; a non-match says nothing.
+
+- name: SanctionedParty
+  description: >-
+    An entry on OFAC's SDN list (US Treasury, public domain): the primary name, the sanctions
+    programmes it is listed under, and OFAC's remarks (registration and tax ids, directives,
+    secondary-sanctions notes). Keyed on OFAC's entity number. Reached by an exact, case-insensitive
+    name match from a LegalEntity's names, or from one of its aliases.
+  properties:
+    entNum:
+      identity: true
+      description: "OFAC's ent_num, the stable id of the entry."
+    name: "The primary SDN name as OFAC prints it (upper case)."
+    sdnType: "individual, vessel, aircraft, or empty for an entity."
+    program: "The sanctions programme(s), e.g. UKRAINE-EO13662, RUSSIA-EO14024, SDGT."
+    remarks: "OFAC's remarks: registration ids, tax ids, directives, websites, linked parties."
+  virtualJoins:
+    - anchorLabel: LegalEntity
+      relationship: NAMED_ON_SDN
+      keyField: names
+      recordKeyField: nameQueried
+      producer: sanctionedPartyByName
+      maxAnchors: 500
+      maxFanoutTotal: 500
+      description: >-
+        `(e:LegalEntity)-[:NAMED_ON_SDN]->(s:SanctionedParty)`: one of the entity's GLEIF names equals an
+        SDN primary name, case-insensitively. A lead, not an identification.
+    - anchorLabel: SanctionsAlias
+      relationship: ALIAS_OF
+      keyField: entNum
+      recordKeyField: entNumQueried
+      producer: sanctionedPartyByEntNum
+      maxAnchors: 500
+      maxFanoutTotal: 500
+      description: "The SDN entry an alias belongs to."
+
+- name: SanctionsAlias
+  description: >-
+    An alias (a.k.a., f.k.a., n.k.a.) OFAC lists for an SDN entry, from OFAC's ALT.CSV. Rosneft's
+    entry is "OPEN JOINT-STOCK COMPANY ROSNEFT OIL COMPANY"; its aliases include "ROSNEFT OIL
+    COMPANY" and "ROSNEFT", which is what GLEIF records as its alternative-language legal name.
+  properties:
+    altNum:
+      identity: true
+      description: "OFAC's alt_num, the alias's own id."
+    entNum: "The SDN entry this alias belongs to."
+    altType: "aka, fka or nka."
+    altName: "The alias as OFAC prints it."
+  virtualJoins:
+    - anchorLabel: LegalEntity
+      relationship: ALIAS_ON_SDN
+      keyField: names
+      recordKeyField: nameQueried
+      producer: sanctionsAliasByName
+      maxAnchors: 500
+      maxFanoutTotal: 500
+      description: >-
+        `(e:LegalEntity)-[:ALIAS_ON_SDN]->(a:SanctionsAlias)-[:ALIAS_OF]->(s:SanctionedParty)`: one of the
+        entity's GLEIF names equals an SDN alias, case-insensitively. A lead, not an identification.

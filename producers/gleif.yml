@@ -1,0 +1,175 @@
+# GLEIF, per LEI, as a question reaches it. JSON:API: lists under $.data[*], singles under $.data.
+# No key. GLEIF publishes no rate limit; 4/sec is a courteous ceiling, and the day-long cache means a
+# demonstration makes dozens of calls, not thousands.
+#
+# A 404 from a parent endpoint means "no such relationship is reported", which GLEIF states in the
+# body as `Related resource not found`. emptyErrorPatterns reads exactly that text as an empty
+# answer: no diagnostic, no retry, no breaker. Any other failure stays a failure.
+
+- name: legalEntityByLei
+  kind: remote
+  operation: gleifLeiRecords
+  records: "$.data[*]"
+  # String mode: the keys render comma-joined into filter[lei], up to 200 per call (GLEIF's page cap).
+  args: { "filter[lei]": "{keys}", "page[size]": 200 }
+  keyTemplate: "{key}"
+  keyJoin: ","
+  maxKeysPerCall: 200
+  cache: { kind: ttl, seconds: 86400 }
+  cost: { bucket: gleif, rate: 4/sec, yield: high }
+  # GLEIF filters the listing itself on status and legal-address country, so a literal predicate on
+  # either narrows the fetch at the source; a key the filter excludes is simply not returned.
+  pushdown:
+    - { property: status, op: EQUALS, argPath: "filter[entity.status]", clause: "{value}", valuePattern: "^(ACTIVE|INACTIVE)$" }
+    - { property: country, op: EQUALS, argPath: "filter[entity.legalAddress.country]", clause: "{value}", valuePattern: "^([A-Z]{2})$" }
+  project:
+    lei: id
+    legalName: attributes.entity.legalName.name
+    otherNames: "attributes.entity.otherNames[*].name"
+    jurisdiction: attributes.entity.jurisdiction
+    status: attributes.entity.status
+    category: attributes.entity.category
+    legalForm: attributes.entity.legalForm.id
+    country: attributes.entity.legalAddress.country
+    city: attributes.entity.legalAddress.city
+    registeredAs: attributes.entity.registeredAs
+    registrationAuthority: attributes.entity.registeredAt.id
+    creationDate: attributes.entity.creationDate
+    registrationStatus: attributes.registration.status
+    lastUpdated: attributes.registration.lastUpdateDate
+  compute:
+    # Every name GLEIF knows the entity by, legal name first: what the sanctions join keys on.
+    names: "[r.legalName] + [n IN coalesce(r.otherNames, []) WHERE n IS NOT NULL AND n <> r.legalName]"
+
+- name: directParentOfLegalEntity
+  kind: remote
+  operation: gleifDirectParent
+  records: "$"
+  keyArgs: [lei]
+  echoKeyAs: childLei
+  batchSafe: false
+  emptyErrorPatterns: ["Related resource not found"]
+  cache: { kind: ttl, seconds: 86400, negativeTtlSeconds: 86400 }
+  cost: { bucket: gleif, rate: 4/sec, yield: high }
+  project:
+    lei: data.id
+    legalName: data.attributes.entity.legalName.name
+    otherNames: "data.attributes.entity.otherNames[*].name"
+    jurisdiction: data.attributes.entity.jurisdiction
+    status: data.attributes.entity.status
+    category: data.attributes.entity.category
+    legalForm: data.attributes.entity.legalForm.id
+    country: data.attributes.entity.legalAddress.country
+    city: data.attributes.entity.legalAddress.city
+    registeredAs: data.attributes.entity.registeredAs
+    registrationAuthority: data.attributes.entity.registeredAt.id
+    creationDate: data.attributes.entity.creationDate
+    registrationStatus: data.attributes.registration.status
+    lastUpdated: data.attributes.registration.lastUpdateDate
+  compute:
+    names: "[r.legalName] + [n IN coalesce(r.otherNames, []) WHERE n IS NOT NULL AND n <> r.legalName]"
+
+- name: ultimateParentOfLegalEntity
+  kind: remote
+  operation: gleifUltimateParent
+  records: "$"
+  keyArgs: [lei]
+  echoKeyAs: childLei
+  batchSafe: false
+  emptyErrorPatterns: ["Related resource not found"]
+  cache: { kind: ttl, seconds: 86400, negativeTtlSeconds: 86400 }
+  cost: { bucket: gleif, rate: 4/sec, yield: high }
+  project:
+    lei: data.id
+    legalName: data.attributes.entity.legalName.name
+    otherNames: "data.attributes.entity.otherNames[*].name"
+    jurisdiction: data.attributes.entity.jurisdiction
+    status: data.attributes.entity.status
+    category: data.attributes.entity.category
+    legalForm: data.attributes.entity.legalForm.id
+    country: data.attributes.entity.legalAddress.country
+    city: data.attributes.entity.legalAddress.city
+    registeredAs: data.attributes.entity.registeredAs
+    registrationAuthority: data.attributes.entity.registeredAt.id
+    creationDate: data.attributes.entity.creationDate
+    registrationStatus: data.attributes.registration.status
+    lastUpdated: data.attributes.registration.lastUpdateDate
+  compute:
+    names: "[r.legalName] + [n IN coalesce(r.otherNames, []) WHERE n IS NOT NULL AND n <> r.legalName]"
+
+- name: directChildrenOfLegalEntity
+  kind: remote
+  operation: gleifDirectChildren
+  records: "$.data[*]"
+  keyArgs: [lei]
+  echoKeyAs: parentLei
+  batchSafe: false
+  args: { "page[size]": 200 }
+  paging: { style: page, param: "page[number]", sizeParam: "page[size]", size: 200, maxPages: 5 }
+  # The children endpoint takes no filters: it lists what the parent consolidates, and a question
+  # that narrows the children does so in the graph. Declared empty on purpose.
+  pushdown: []
+  cache: { kind: ttl, seconds: 86400, negativeTtlSeconds: 86400 }
+  cost: { bucket: gleif, rate: 4/sec, yield: high }
+  project:
+    lei: id
+    legalName: attributes.entity.legalName.name
+    otherNames: "attributes.entity.otherNames[*].name"
+    jurisdiction: attributes.entity.jurisdiction
+    status: attributes.entity.status
+    category: attributes.entity.category
+    legalForm: attributes.entity.legalForm.id
+    country: attributes.entity.legalAddress.country
+    city: attributes.entity.legalAddress.city
+    registeredAs: attributes.entity.registeredAs
+    registrationAuthority: attributes.entity.registeredAt.id
+    creationDate: attributes.entity.creationDate
+    registrationStatus: attributes.registration.status
+    lastUpdated: attributes.registration.lastUpdateDate
+  compute:
+    names: "[r.legalName] + [n IN coalesce(r.otherNames, []) WHERE n IS NOT NULL AND n <> r.legalName]"
+
+- name: consolidationOfLegalEntity
+  kind: remote
+  operation: gleifDirectParentRelationship
+  records: "$"
+  keyArgs: [lei]
+  echoKeyAs: childLei
+  batchSafe: false
+  emptyErrorPatterns: ["Related resource not found"]
+  cache: { kind: ttl, seconds: 86400, negativeTtlSeconds: 86400 }
+  cost: { bucket: gleif, rate: 4/sec, yield: high }
+  project:
+    id: data.id
+    parentLei: data.attributes.relationship.endNode.id
+    relationshipType: data.attributes.relationship.type
+    status: data.attributes.relationship.status
+    validFrom: data.attributes.validFrom
+    validTo: data.attributes.validTo
+    periodTypes: "data.attributes.relationship.periods[*].type"
+    periodStarts: "data.attributes.relationship.periods[*].startDate"
+    periodEnds: "data.attributes.relationship.periods[*].endDate"
+    corroboration: data.attributes.registration.corroborationLevel
+    corroborationDocuments: data.attributes.registration.corroborationDocuments
+    lastUpdated: data.attributes.registration.lastUpdateDate
+  compute:
+    # The periods arrive as parallel lists; pick each kind by position (project takes paths, not filters).
+    since: "head([i IN range(0, size(coalesce(r.periodTypes, [])) - 1) WHERE r.periodTypes[i] = 'RELATIONSHIP_PERIOD' | r.periodStarts[i]])"
+    accountingPeriodStart: "head([i IN range(0, size(coalesce(r.periodTypes, [])) - 1) WHERE r.periodTypes[i] = 'ACCOUNTING_PERIOD' | r.periodStarts[i]])"
+    accountingPeriodEnd: "head([i IN range(0, size(coalesce(r.periodTypes, [])) - 1) WHERE r.periodTypes[i] = 'ACCOUNTING_PERIOD' | r.periodEnds[i]])"
+
+- name: reportingExceptionOfLegalEntity
+  kind: remote
+  operation: gleifDirectParentException
+  records: "$"
+  keyArgs: [lei]
+  echoKeyAs: forLei
+  batchSafe: false
+  emptyErrorPatterns: ["Related resource not found"]
+  cache: { kind: ttl, seconds: 86400, negativeTtlSeconds: 86400 }
+  cost: { bucket: gleif, rate: 4/sec, yield: high }
+  project:
+    id: data.id
+    category: data.attributes.category
+    reason: data.attributes.reason
+    reference: data.attributes.reference

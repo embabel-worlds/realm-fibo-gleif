@@ -1,0 +1,11 @@
+# The GLEIF LEI API, as a narrow vendored OpenAPI description of the seven operations this realm
+# calls. Public, no key, JSON:API; measured 12-13 November 2026 (see README). GLEIF's data is CC0 1.0
+# under the LEI Data Terms of Use: reached through the Access Service, no rights claimed, no
+# endorsement implied. No published rate limit; the producers cache for a day and pace at 4/sec.
+- url: gleif.json
+  name: fibo_gleif_api
+  type: openapi
+  auth: none
+  headers:
+    Accept: application/vnd.api+json
+    User-Agent: "realm-fibo-gleif/0.1 (Embabel; https://github.com/embabel-worlds/realm-fibo-gleif)"

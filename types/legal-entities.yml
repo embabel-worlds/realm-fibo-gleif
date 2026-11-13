@@ -1,0 +1,161 @@
+# FIBO's legal entity, bound to GLEIF. The names are FIBO Business Entities' (ontology/alignment.yml
+# has the IRI behind each); the rows are GLEIF's, fetched per LEI as a question reaches them.
+#
+# The anchor is the LEI. `MATCH (e:LegalEntity {lei: '…'})` is answered through LegalEntityQuery
+# without the door being written, because the join declares `materializedKeyField: lei`. A
+# Counterparty from reference/ reaches its entity the same way, by its lei.
+#
+# IS_SUBSIDIARY_OF is FIBO's isSubsidiaryOf. Its evidence is GLEIF's Level 2 record, type
+# IS_DIRECTLY_CONSOLIDATED_BY: accounting consolidation under IFRS 10 or US GAAP, which is control
+# in FIBO's sense, one hop per record. The edge is a self-join, so `-[:IS_SUBSIDIARY_OF*1..6]->`
+# walks the chain to the top, fetching one parent per hop and citing the GLEIF record on every edge
+# (sourceId, sourceName, hop). IS_CONTROLLING_AFFILIATE_OF, from the parent end, lists the direct
+# subsidiaries under FIBO's name for that direction.
+
+- name: LegalEntityQuery
+  visibility: internal
+  userAnchor: false
+  description: >-
+    An LEI bound in a query: `MATCH (e:LegalEntity {lei: '549300G81RQKP7XW2N18'})`. The engine writes
+    this door itself; it is not stored.
+  properties:
+    lei:
+      identity: true
+      description: "The 20-character Legal Entity Identifier (ISO 17442)."
+
+- name: LegalEntity
+  description: >-
+    A legal person organized under the laws of some jurisdiction (FIBO / OMG Commons LegalEntity),
+    as the GLEIF register records it: legal name, other and former names, jurisdiction, legal form
+    (an ISO 20275 ELF code), status, legal address, and the business register it is registered in.
+    Keyed on the LEI. Walk IS_SUBSIDIARY_OF to its parent and on to the ultimate parent; CONSOLIDATION
+    for the record behind that edge; NO_PARENT_REPORTED for GLEIF's stated reason when there is none;
+    NAMED_ON_SDN and ALIAS_ON_SDN for a name match against OFAC's list. GLEIF data is CC0 1.0.
+  properties:
+    lei:
+      identity: true
+      description: "The Legal Entity Identifier (ISO 17442); FIBO's LegalEntityIdentifier, kept as a property."
+    legalName: "The registered legal name, in its own language and script."
+    names:
+      cardinality: LIST
+      description: "The legal name and every other name GLEIF records (alternative-language legal names, trading names): the keys the sanctions join matches on."
+    otherNames:
+      cardinality: LIST
+      description: "GLEIF's otherNames: alternative-language legal names, trading names, previous names."
+    jurisdiction: "ISO 3166 country or region of incorporation, e.g. US-CA."
+    status: "ACTIVE or INACTIVE."
+    category: "GLEIF's entity category: GENERAL, FUND, BRANCH, SOLE_PROPRIETOR, …"
+    legalForm: "ISO 20275 Entity Legal Form code, e.g. 2HBR (GmbH), H1UM (Delaware corporation)."
+    country: "Country of the legal address."
+    city: "City of the legal address."
+    registeredAs: "The entity's id in its business register (e.g. HRB 184025)."
+    registrationAuthority: "GLEIF Registration Authority code of that register (e.g. RA000217, Handelsregister)."
+    creationDate: "When the entity was created, as GLEIF records it."
+    registrationStatus: "The LEI registration's status: ISSUED, LAPSED, RETIRED, …"
+    lastUpdated: "When GLEIF last updated the LEI record."
+  virtualJoins:
+    - anchorLabel: LegalEntityQuery
+      relationship: IS
+      keyField: lei
+      recordKeyField: lei
+      materializedKeyField: lei
+      producer: legalEntityByLei
+      description: "The entity with this LEI. Up to 200 LEIs per GLEIF call."
+    - anchorLabel: Counterparty
+      relationship: IS
+      keyField: lei
+      recordKeyField: lei
+      producer: legalEntityByLei
+      description: "The watch-list counterparty's GLEIF record: `MATCH (c:Counterparty)-[:IS]->(e:LegalEntity)`."
+    - anchorLabel: LegalEntity
+      relationship: IS_SUBSIDIARY_OF
+      keyField: lei
+      recordKeyField: childLei
+      producer: directParentOfLegalEntity
+      maxAnchors: 200
+      maxFanoutTotal: 400
+      description: >-
+        `(child:LegalEntity)-[:IS_SUBSIDIARY_OF]->(parent:LegalEntity)`: FIBO's isSubsidiaryOf, evidenced
+        by GLEIF's IS_DIRECTLY_CONSOLIDATED_BY record. One GLEIF call per child, cached a day; an entity
+        reporting no parent yields no edge (see NO_PARENT_REPORTED). `*1..6` walks to the top. The
+        parent's view of the same fact is IS_CONTROLLING_AFFILIATE_OF.
+    - anchorLabel: LegalEntity
+      relationship: IS_CONTROLLING_AFFILIATE_OF
+      keyField: lei
+      recordKeyField: parentLei
+      producer: directChildrenOfLegalEntity
+      maxAnchors: 50
+      maxFanoutTotal: 1000
+      description: >-
+        `(parent:LegalEntity)-[:IS_CONTROLLING_AFFILIATE_OF]->(child:LegalEntity)`: FIBO's
+        isControllingAffiliateOf, the entities GLEIF records as directly consolidated by this one. Its own
+        relationship name, not the reverse of IS_SUBSIDIARY_OF, so that a walk UP the chain never fans out
+        through every sibling: with one name for both directions the planner resolved the children of each
+        parent it passed (39 GLEIF calls for Apple's one hop; 4 with the names apart).
+    - anchorLabel: LegalEntity
+      relationship: IS_ULTIMATELY_CONSOLIDATED_BY
+      keyField: lei
+      recordKeyField: childLei
+      producer: ultimateParentOfLegalEntity
+      maxAnchors: 200
+      maxFanoutTotal: 200
+      description: >-
+        GLEIF's own answer to "who is at the top": the ultimate accounting consolidating parent, one
+        call. Agrees with the IS_SUBSIDIARY_OF walk when every intermediate entity has an LEI; differs
+        when the chain passes through an entity GLEIF cannot name.
+
+- name: ConsolidationRecord
+  description: >-
+    GLEIF's relationship record behind an IS_SUBSIDIARY_OF edge: since when the child has been
+    consolidated by the parent (the relationship period), the accounting period it was last
+    asserted for, its status, and how GLEIF corroborated it (FULLY_CORROBORATED,
+    PARTIALLY_CORROBORATED, ENTITY_SUPPLIED_ONLY). The evidence for a hop, as a node.
+  properties:
+    id:
+      identity: true
+      description: "GLEIF's id for the relationship record."
+    childLei: "The consolidated entity."
+    parentLei: "The consolidating entity."
+    relationshipType: "IS_DIRECTLY_CONSOLIDATED_BY."
+    status: "ACTIVE or INACTIVE."
+    since: "Start of the relationship period GLEIF records."
+    validFrom: "When this version of the record became valid."
+    validTo: "When it ceased to, if it has."
+    accountingPeriodStart: "Start of the accounting period the consolidation was last asserted for."
+    accountingPeriodEnd: "End of that accounting period."
+    corroboration: "GLEIF's corroboration level for the relationship."
+    corroborationDocuments: "The document class GLEIF corroborated it from."
+    lastUpdated: "When GLEIF last updated the record."
+  virtualJoins:
+    - anchorLabel: LegalEntity
+      relationship: CONSOLIDATION
+      keyField: lei
+      recordKeyField: childLei
+      producer: consolidationOfLegalEntity
+      maxAnchors: 200
+      maxFanoutTotal: 200
+      description: "`(child:LegalEntity)-[:CONSOLIDATION]->(r:ConsolidationRecord)`: the record behind the child's IS_SUBSIDIARY_OF edge."
+
+- name: ReportingException
+  description: >-
+    Why GLEIF reports no direct parent for an entity: NO_LEI (the parent has none),
+    NON_CONSOLIDATING (nobody consolidates it: it is the top of its own tree), NATURAL_PERSONS
+    (owned by people), NON_PUBLIC, BINDING_LEGAL_COMMITMENTS, and the rest of GLEIF's reason list.
+    An absent parent is a stated fact here, not a gap.
+  properties:
+    id:
+      identity: true
+      description: "GLEIF's id for the exception record."
+    forLei: "The entity the exception is reported for."
+    category: "DIRECT_ACCOUNTING_CONSOLIDATION_PARENT."
+    reason: "GLEIF's reason code."
+    reference: "Free text GLEIF attaches, when any."
+  virtualJoins:
+    - anchorLabel: LegalEntity
+      relationship: NO_PARENT_REPORTED
+      keyField: lei
+      recordKeyField: forLei
+      producer: reportingExceptionOfLegalEntity
+      maxAnchors: 200
+      maxFanoutTotal: 200
+      description: "`(e:LegalEntity)-[:NO_PARENT_REPORTED]->(x:ReportingException)`: GLEIF's reason the chain ends here."

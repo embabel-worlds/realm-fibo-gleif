@@ -1,0 +1,12 @@
+# FIBO's ControllingAffiliate: a party that controls at least one other. The role from the other end
+# of the same edge. Same data contract as Subsidiary: concluded over fetched edges.
+name: fibo-gleif/controlling-affiliate
+derives: ControllingAffiliate
+description: >-
+  A legal entity GLEIF records as directly consolidating at least one other (FIBO:
+  ControllingAffiliate). `controls` counts the direct subsidiaries the query has reached.
+rules:
+  - derive: "(p:ControllingAffiliate {controls: n})"
+    from: |
+      MATCH (p:LegalEntity)-[:IS_CONTROLLING_AFFILIATE_OF]->(s:LegalEntity)
+      WITH p, count(DISTINCT s.lei) AS n

@@ -1,0 +1,15 @@
+# The watch list: counterparties as this realm's reference data, each an LEI with a note. A real
+# installation replaces reference/counterparties.yml with its own list, or writes a producer over
+# the system that holds it; the views do not change.
+- name: Counterparty
+  userAnchor: false
+  description: >-
+    A counterparty on the watch list, identified by its LEI. `MATCH (c:Counterparty)-[:IS]->(e:LegalEntity)`
+    reaches its GLEIF record; CounterpartyExposure walks every one to its ultimate parent and checks
+    the chain against OFAC's list.
+  properties:
+    lei:
+      identity: true
+      description: "The counterparty's LEI."
+    name: "The name the list keeps it under."
+    note: "Why it is on the list, or what to expect."

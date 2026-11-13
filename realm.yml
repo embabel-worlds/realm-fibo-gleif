@@ -1,0 +1,42 @@
+# FIBO + GLEIF: the legal-entity graph, in FIBO's vocabulary, bound to the public LEI register.
+#
+# Two things usually kept apart are one realm here. The TYPES and RELATIONSHIPS are FIBO's, the
+# ontology every bank's data office cites (Business Entities: LegalEntity, Subsidiary,
+# ControllingAffiliate, isSubsidiaryOf); ontology/alignment.yml records the IRI behind every name,
+# the way an ontology-io import does. The BINDING is GLEIF's: three million legal entities and who
+# consolidates whom, reached by the Global LEI Foundation's public JSON:API with no key, fetched a
+# handful at a time as a question touches them, never bulk-loaded. The sanctions list is OFAC's own
+# published files. When the host reads BINDING_REALMS.md this file splits in two along that seam;
+# until then it is one realm that answers.
+#
+# The question it exists to answer: which of our counterparties are ultimately controlled by a
+# sanctioned entity, and through which chain, with the evidence for each hop.
+name: fibo-gleif
+version: 0.1.0
+description: >-
+  Legal entities in FIBO's vocabulary, bound to the GLEIF register and OFAC's sanctions lists.
+  Anchor a legal entity by LEI (`MATCH (e:LegalEntity {lei: '549300G81RQKP7XW2N18'})`) and walk
+  IS_SUBSIDIARY_OF (FIBO's isSubsidiaryOf, evidenced by GLEIF's IS_DIRECTLY_CONSOLIDATED_BY
+  relationship records) up to the ultimate parent, each hop citing the GLEIF record that asserts
+  it; read the consolidation record (since when, under which accounting standard, how
+  corroborated) or the reporting exception that says why no parent is given; and join any name on
+  the chain, legal or alternative, to OFAC's SDN list and its aliases, with the match quality shown.
+  Subsidiary and ControllingAffiliate are FIBO roles concluded by rules; SanctionsExposed propagates
+  up the chain. Nothing is copied: GLEIF answers per LEI, cached for a day; OFAC's files are read
+  once a day. GLEIF data is CC0; OFAC's lists are US public domain; FIBO is MIT.
+maturity: experimental
+author: Embabel
+tags:
+  - finance
+  - fibo
+  - gleif
+  - ontology
+  - sanctions
+  - legal-entities
+retry:
+  attempts: 3
+  baseBackoff: 300ms
+  multiplier: 2.0
+  jitter: 0.25
+  maxBackoff: 2s
+  retryOn: [timeout, gateway, connection]

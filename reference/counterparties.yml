@@ -1,0 +1,27 @@
+# The watch list for the demonstration: eight real legal entities, each verified against the GLEIF
+# API on 13 November 2026 (README §Verification). Replace with your own. `userAnchor: false`: a
+# global list, not one person's.
+- type: Counterparty
+  userAnchor: false
+  data: { lei: 549300G81RQKP7XW2N18, name: "Apple Operations International Limited", note: "Irish; consolidated by Apple Inc. since 2017-12-13 per GLEIF. Expected clean." }
+- type: Counterparty
+  userAnchor: false
+  data: { lei: 391200PKEUF3Y2NUMW25, name: "Rosneft Deutschland GmbH", note: "German; GLEIF records it consolidated by PAO NK Rosneft (RU), whose GLEIF alternative names Rosneft and Rosneft Oil Company are OFAC aliases of SDN entry 17022. Expected exposed via an alias match." }
+- type: Counterparty
+  userAnchor: false
+  data: { lei: 25340076BE9D5XUK4H54, name: "OOO RN-Kapital", note: "Russian; a direct subsidiary of Rosneft per GLEIF. Expected exposed via its parent." }
+- type: Counterparty
+  userAnchor: false
+  data: { lei: 549300RYZH825MVIFK32, name: "SEFE Marketing & Trading Switzerland AG", note: "Swiss; formerly Gazprom Marketing & Trading. GLEIF now chains it to SEFE Marketing & Trading Limited (GB), which reports no parent. Expected clean: the name match finds no Gazprom." }
+- type: Counterparty
+  userAnchor: false
+  data: { lei: 549300DEALCM2ZPE7N80, name: "SEFE Energy Limited", note: "British; consolidated by SEFE Energy GmbH (DE) per GLEIF. Expected clean." }
+- type: Counterparty
+  userAnchor: false
+  data: { lei: 529900CN8RY2Z01K0V60, name: "Gazprom Austria GmbH", note: "Austrian; GLEIF reports NO parent, reason NON_CONSOLIDATING. Expected: no chain, the reporting exception shown, and no name match on its own name." }
+- type: Counterparty
+  userAnchor: false
+  data: { lei: 52990077294L2XDUP377, name: "Siemens Energy Greece", note: "Greek; consolidated by Siemens Energy AG (DE) per GLEIF. Expected clean." }
+- type: Counterparty
+  userAnchor: false
+  data: { lei: 549300I5PVOCV4TRIS82, name: "Nestlé (South Africa)", note: "South African; consolidated by Nestlé S.A. (CH) per GLEIF. Expected clean." }

@@ -1,0 +1,991 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "GLEIF LEI API (the operations realm-fibo-gleif uses)",
+    "version": "v1",
+    "description": "Hand-curated from https://www.gleif.org/en/lei-data/gleif-api and the live service, 12-13 November 2026. JSON:API envelopes: lists under data[*], singles under data. Data: GLEIF Golden Copy, CC0 1.0 under the LEI Data Terms of Use."
+  },
+  "servers": [
+    {
+      "url": "https://api.gleif.org/api/v1"
+    }
+  ],
+  "paths": {
+    "/lei-records": {
+      "get": {
+        "operationId": "gleifLeiRecords",
+        "summary": "LEI records by LEI, up to 200 per call (filter[lei]=A,B,C), or by fulltext / legal name / country / status filters.",
+        "parameters": [
+          {
+            "name": "filter[lei]",
+            "in": "query",
+            "required": false,
+            "description": "Comma-separated LEIs, at most 200.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "filter[fulltext]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "filter[entity.legalName]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "filter[entity.legalAddress.country]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "filter[entity.status]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "INACTIVE"
+              ]
+            }
+          },
+          {
+            "name": "page[size]",
+            "in": "query",
+            "required": false,
+            "description": "Records per page, at most 200.",
+            "schema": {
+              "type": "integer",
+              "maximum": 200
+            }
+          },
+          {
+            "name": "page[number]",
+            "in": "query",
+            "required": false,
+            "description": "1-based page.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of records.",
+            "content": {
+              "application/vnd.api+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "description": "One lei-records resource: id is the LEI; attributes.entity carries legalName, otherNames, legalAddress, jurisdiction, legalForm, status, registeredAs, registeredAt.",
+                        "properties": {
+                          "type": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "attributes": {
+                            "type": "object",
+                            "properties": {
+                              "lei": {
+                                "type": "string"
+                              },
+                              "entity": {
+                                "type": "object",
+                                "properties": {
+                                  "legalName": {
+                                    "type": "object",
+                                    "properties": {
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "language": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  },
+                                  "otherNames": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "name": {
+                                          "type": "string"
+                                        },
+                                        "type": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "legalAddress": {
+                                    "type": "object",
+                                    "properties": {
+                                      "city": {
+                                        "type": "string"
+                                      },
+                                      "country": {
+                                        "type": "string"
+                                      },
+                                      "postalCode": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  },
+                                  "jurisdiction": {
+                                    "type": "string"
+                                  },
+                                  "category": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "legalForm": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  },
+                                  "registeredAs": {
+                                    "type": "string"
+                                  },
+                                  "registeredAt": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  },
+                                  "creationDate": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "registration": {
+                                "type": "object",
+                                "properties": {
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "lastUpdateDate": {
+                                    "type": "string"
+                                  },
+                                  "corroborationLevel": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lei-records/{lei}": {
+      "get": {
+        "operationId": "gleifLeiRecord",
+        "summary": "One LEI record.",
+        "parameters": [
+          {
+            "name": "lei",
+            "in": "path",
+            "required": true,
+            "description": "The 20-character Legal Entity Identifier.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z0-9]{18}[0-9]{2}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The record.",
+            "content": {
+              "application/vnd.api+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "description": "One lei-records resource: id is the LEI; attributes.entity carries legalName, otherNames, legalAddress, jurisdiction, legalForm, status, registeredAs, registeredAt.",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "attributes": {
+                          "type": "object",
+                          "properties": {
+                            "lei": {
+                              "type": "string"
+                            },
+                            "entity": {
+                              "type": "object",
+                              "properties": {
+                                "legalName": {
+                                  "type": "object",
+                                  "properties": {
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "language": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "otherNames": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "type": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                },
+                                "legalAddress": {
+                                  "type": "object",
+                                  "properties": {
+                                    "city": {
+                                      "type": "string"
+                                    },
+                                    "country": {
+                                      "type": "string"
+                                    },
+                                    "postalCode": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "jurisdiction": {
+                                  "type": "string"
+                                },
+                                "category": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string"
+                                },
+                                "legalForm": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "registeredAs": {
+                                  "type": "string"
+                                },
+                                "registeredAt": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "creationDate": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "registration": {
+                              "type": "object",
+                              "properties": {
+                                "status": {
+                                  "type": "string"
+                                },
+                                "lastUpdateDate": {
+                                  "type": "string"
+                                },
+                                "corroborationLevel": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such LEI."
+          }
+        }
+      }
+    },
+    "/lei-records/{lei}/direct-parent": {
+      "get": {
+        "operationId": "gleifDirectParent",
+        "summary": "The entity that directly consolidates this one (Level 2, accounting consolidation). 404 when none is reported.",
+        "parameters": [
+          {
+            "name": "lei",
+            "in": "path",
+            "required": true,
+            "description": "The 20-character Legal Entity Identifier.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z0-9]{18}[0-9]{2}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The record.",
+            "content": {
+              "application/vnd.api+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "description": "One lei-records resource: id is the LEI; attributes.entity carries legalName, otherNames, legalAddress, jurisdiction, legalForm, status, registeredAs, registeredAt.",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "attributes": {
+                          "type": "object",
+                          "properties": {
+                            "lei": {
+                              "type": "string"
+                            },
+                            "entity": {
+                              "type": "object",
+                              "properties": {
+                                "legalName": {
+                                  "type": "object",
+                                  "properties": {
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "language": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "otherNames": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "type": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                },
+                                "legalAddress": {
+                                  "type": "object",
+                                  "properties": {
+                                    "city": {
+                                      "type": "string"
+                                    },
+                                    "country": {
+                                      "type": "string"
+                                    },
+                                    "postalCode": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "jurisdiction": {
+                                  "type": "string"
+                                },
+                                "category": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string"
+                                },
+                                "legalForm": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "registeredAs": {
+                                  "type": "string"
+                                },
+                                "registeredAt": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "creationDate": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "registration": {
+                              "type": "object",
+                              "properties": {
+                                "status": {
+                                  "type": "string"
+                                },
+                                "lastUpdateDate": {
+                                  "type": "string"
+                                },
+                                "corroborationLevel": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such related record. GLEIF answers 404 with `Related resource not found` when an entity reports no parent of that kind; the producers read that as an empty answer, never as an outage."
+          }
+        }
+      }
+    },
+    "/lei-records/{lei}/ultimate-parent": {
+      "get": {
+        "operationId": "gleifUltimateParent",
+        "summary": "The entity at the top of this one's consolidation chain, as GLEIF records it. 404 when none is reported.",
+        "parameters": [
+          {
+            "name": "lei",
+            "in": "path",
+            "required": true,
+            "description": "The 20-character Legal Entity Identifier.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z0-9]{18}[0-9]{2}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The record.",
+            "content": {
+              "application/vnd.api+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "description": "One lei-records resource: id is the LEI; attributes.entity carries legalName, otherNames, legalAddress, jurisdiction, legalForm, status, registeredAs, registeredAt.",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "attributes": {
+                          "type": "object",
+                          "properties": {
+                            "lei": {
+                              "type": "string"
+                            },
+                            "entity": {
+                              "type": "object",
+                              "properties": {
+                                "legalName": {
+                                  "type": "object",
+                                  "properties": {
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "language": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "otherNames": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "type": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                },
+                                "legalAddress": {
+                                  "type": "object",
+                                  "properties": {
+                                    "city": {
+                                      "type": "string"
+                                    },
+                                    "country": {
+                                      "type": "string"
+                                    },
+                                    "postalCode": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "jurisdiction": {
+                                  "type": "string"
+                                },
+                                "category": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string"
+                                },
+                                "legalForm": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "registeredAs": {
+                                  "type": "string"
+                                },
+                                "registeredAt": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "creationDate": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "registration": {
+                              "type": "object",
+                              "properties": {
+                                "status": {
+                                  "type": "string"
+                                },
+                                "lastUpdateDate": {
+                                  "type": "string"
+                                },
+                                "corroborationLevel": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such related record. GLEIF answers 404 with `Related resource not found` when an entity reports no parent of that kind; the producers read that as an empty answer, never as an outage."
+          }
+        }
+      }
+    },
+    "/lei-records/{lei}/direct-children": {
+      "get": {
+        "operationId": "gleifDirectChildren",
+        "summary": "The entities this one directly consolidates, paged.",
+        "parameters": [
+          {
+            "name": "lei",
+            "in": "path",
+            "required": true,
+            "description": "The 20-character Legal Entity Identifier.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z0-9]{18}[0-9]{2}$"
+            }
+          },
+          {
+            "name": "page[size]",
+            "in": "query",
+            "required": false,
+            "description": "Records per page, at most 200.",
+            "schema": {
+              "type": "integer",
+              "maximum": 200
+            }
+          },
+          {
+            "name": "page[number]",
+            "in": "query",
+            "required": false,
+            "description": "1-based page.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of records.",
+            "content": {
+              "application/vnd.api+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "description": "One lei-records resource: id is the LEI; attributes.entity carries legalName, otherNames, legalAddress, jurisdiction, legalForm, status, registeredAs, registeredAt.",
+                        "properties": {
+                          "type": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "attributes": {
+                            "type": "object",
+                            "properties": {
+                              "lei": {
+                                "type": "string"
+                              },
+                              "entity": {
+                                "type": "object",
+                                "properties": {
+                                  "legalName": {
+                                    "type": "object",
+                                    "properties": {
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "language": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  },
+                                  "otherNames": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "name": {
+                                          "type": "string"
+                                        },
+                                        "type": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "legalAddress": {
+                                    "type": "object",
+                                    "properties": {
+                                      "city": {
+                                        "type": "string"
+                                      },
+                                      "country": {
+                                        "type": "string"
+                                      },
+                                      "postalCode": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  },
+                                  "jurisdiction": {
+                                    "type": "string"
+                                  },
+                                  "category": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "legalForm": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  },
+                                  "registeredAs": {
+                                    "type": "string"
+                                  },
+                                  "registeredAt": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  },
+                                  "creationDate": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "registration": {
+                                "type": "object",
+                                "properties": {
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "lastUpdateDate": {
+                                    "type": "string"
+                                  },
+                                  "corroborationLevel": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lei-records/{lei}/direct-parent-relationship": {
+      "get": {
+        "operationId": "gleifDirectParentRelationship",
+        "summary": "The relationship record itself: type IS_DIRECTLY_CONSOLIDATED_BY, status, validFrom/validTo, accounting and relationship periods, corroboration level. 404 when none.",
+        "parameters": [
+          {
+            "name": "lei",
+            "in": "path",
+            "required": true,
+            "description": "The 20-character Legal Entity Identifier.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z0-9]{18}[0-9]{2}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The relationship record.",
+            "content": {
+              "application/vnd.api+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "attributes": {
+                          "type": "object",
+                          "properties": {
+                            "validFrom": {
+                              "type": "string"
+                            },
+                            "validTo": {
+                              "type": "string"
+                            },
+                            "relationship": {
+                              "type": "object",
+                              "properties": {
+                                "type": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string"
+                                },
+                                "startNode": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "endNode": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "periods": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "startDate": {
+                                        "type": "string"
+                                      },
+                                      "endDate": {
+                                        "type": "string"
+                                      },
+                                      "type": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "registration": {
+                              "type": "object",
+                              "properties": {
+                                "corroborationLevel": {
+                                  "type": "string"
+                                },
+                                "corroborationDocuments": {
+                                  "type": "string"
+                                },
+                                "lastUpdateDate": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such related record. GLEIF answers 404 with `Related resource not found` when an entity reports no parent of that kind; the producers read that as an empty answer, never as an outage."
+          }
+        }
+      }
+    },
+    "/lei-records/{lei}/direct-parent-reporting-exception": {
+      "get": {
+        "operationId": "gleifDirectParentException",
+        "summary": "Why no direct parent is reported: NO_LEI, NON_CONSOLIDATING, NATURAL_PERSONS, NON_PUBLIC, … 404 when there is a parent or nothing is said.",
+        "parameters": [
+          {
+            "name": "lei",
+            "in": "path",
+            "required": true,
+            "description": "The 20-character Legal Entity Identifier.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z0-9]{18}[0-9]{2}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The exception.",
+            "content": {
+              "application/vnd.api+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "attributes": {
+                          "type": "object",
+                          "properties": {
+                            "lei": {
+                              "type": "string"
+                            },
+                            "category": {
+                              "type": "string"
+                            },
+                            "reason": {
+                              "type": "string"
+                            },
+                            "reference": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such related record. GLEIF answers 404 with `Related resource not found` when an entity reports no parent of that kind; the producers read that as an empty answer, never as an outage."
+          }
+        }
+      }
+    }
+  }
+}

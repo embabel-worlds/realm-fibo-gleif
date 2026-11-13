@@ -1,0 +1,47 @@
+# Which IRI every realm name came from, in the form ontology-io writes for an imported realm, written
+# by hand here because this realm binds an ontology rather than importing one. FIBO Business
+# Entities (EDM Council, MIT) and the OMG Commons Ontology Library (MIT) are the vocabulary; the
+# relationships GLEIF itself names (IS_DIRECTLY_CONSOLIDATED_BY and the ultimate form) are recorded
+# as the evidence behind FIBO's. An OWL export of this realm gives the types back under these IRIs.
+ontology: https://spec.edmcouncil.org/fibo/ontology/BE/
+base: https://embabel.com/ontology/fibo-gleif#
+prefixes:
+  cmns-org: https://www.omg.org/spec/Commons/Organizations/
+  fibo-be-le-lei: https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/LEIEntities/
+  fibo-be-oac-cctl: https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/
+  fibo-be-oac-opty: https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/OwnershipParties/
+  gleif: https://www.gleif.org/ontology/L2/
+types:
+  LegalEntity: https://www.omg.org/spec/Commons/Organizations/LegalEntity
+  Counterparty: https://embabel.com/ontology/fibo-gleif#Counterparty
+  ConsolidationRecord: https://www.gleif.org/ontology/L2/DirectConsolidation
+  ReportingException: https://www.gleif.org/ontology/L2/ReportingException
+  SanctionedParty: https://embabel.com/ontology/fibo-gleif#SanctionedParty
+  SanctionsAlias: https://embabel.com/ontology/fibo-gleif#SanctionsAlias
+properties:
+  LegalEntity.lei: https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/LEIEntities/LegalEntityIdentifier
+  LegalEntity.legalName: https://www.gleif.org/ontology/L1/hasLegalName
+  LegalEntity.legalForm: https://www.gleif.org/ontology/L1/hasLegalForm
+  LegalEntity.jurisdiction: https://www.gleif.org/ontology/L1/hasLegalJurisdiction
+relationships:
+  IS_SUBSIDIARY_OF: https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/isSubsidiaryOf
+  IS_CONTROLLING_AFFILIATE_OF: https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/isControllingAffiliateOf
+  IS_ULTIMATELY_CONSOLIDATED_BY: https://www.gleif.org/ontology/L2/isUltimatelyConsolidatedBy
+  CONSOLIDATION: https://www.gleif.org/ontology/L2/hasRelationship
+  NO_PARENT_REPORTED: https://www.gleif.org/ontology/L2/hasReportingException
+  NAMED_ON_SDN: https://embabel.com/ontology/fibo-gleif#namedOnSdn
+  ALIAS_ON_SDN: https://embabel.com/ontology/fibo-gleif#aliasOnSdn
+  ALIAS_OF: https://embabel.com/ontology/fibo-gleif#aliasOf
+labels:
+  IS_SUBSIDIARY_OF: is subsidiary of
+  IS_CONTROLLING_AFFILIATE_OF: is controlling affiliate of
+  LegalEntity: legal entity
+derivedLabels:
+  Subsidiary: https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/Subsidiary
+  ControllingAffiliate: https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/ControllingAffiliate
+  SanctionsExposed: https://embabel.com/ontology/fibo-gleif#SanctionsExposed
+source:
+  format: binding
+  ontology: FIBO Business Entities (EDM Council, MIT), via the ontology-io import of BusinessEntities.ttl, 12 November 2026
+  binding: GLEIF LEI API v1 (CC0 1.0 under the LEI Data Terms of Use) and OFAC SDN.CSV / ALT.CSV (US public domain)
+  evidence: "GLEIF Level 2 relationship type IS_DIRECTLY_CONSOLIDATED_BY is read as FIBO isSubsidiaryOf; the GLEIF relationship record is kept as ConsolidationRecord"

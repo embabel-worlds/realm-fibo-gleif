@@ -1,0 +1,13 @@
+# FIBO's Subsidiary is a ROLE a legal entity plays, not a kind of entity: a party controlled by
+# another. Concluded, never stored. Data contract (Virtual Cypher §13.6): the rule reads
+# IS_SUBSIDIARY_OF edges the query has fetched, so a view that walks the chain from an anchor sees
+# the role on every entity it reached; a bare `MATCH (s:Subsidiary)` has nothing to conclude over.
+name: fibo-gleif/subsidiary
+derives: Subsidiary
+description: >-
+  A legal entity GLEIF records as directly consolidated by another (FIBO: Subsidiary, a party that
+  is controlled by another party). `controlledBy` names the consolidating entity.
+rules:
+  - derive: "(s:Subsidiary {controlledBy: p.legalName, controlledByLei: p.lei})"
+    from: |
+      MATCH (s:LegalEntity)-[:IS_SUBSIDIARY_OF]->(p:LegalEntity)

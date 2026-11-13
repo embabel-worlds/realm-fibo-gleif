@@ -1,0 +1,73 @@
+# OFAC's SDN list, from the Treasury's Sanctions List Service exports, read once a day. The files
+# have NO header row (OFAC documents the columns in a PDF beside them) and print `-0-` for null:
+# `columns:` names them, and a `-0-` is turned into an absence where it is read.
+#
+# Joined by name, case-insensitively and trimmed, from a LegalEntity's `names` (its GLEIF legal and
+# other names) to the SDN primary name and, separately, to the alias list. Nothing fuzzier: a
+# normalised-name match is a lead to confirm against OFAC's own search, and the view says which
+# list matched.
+#
+# This file is on its own so that a host without `columns:` loses these three producers and
+# reports it, and the GLEIF half of the realm keeps answering.
+
+- name: sanctionedPartyByName
+  kind: tabular
+  url: "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.CSV"
+  format: csv
+  columns: [ent_num, SDN_Name, SDN_Type, Program, Title, Call_Sign, Vess_type, Tonnage, GRT, Vess_flag, Vess_owner, Remarks]
+  keyColumn: SDN_Name
+  keyMatch: ci
+  keyAs: nameQueried
+  userAgent: browser
+  fileCacheSeconds: 86400
+  maxRows: 50000
+  maxRowsPerKey: 20
+  project:
+    entNum: ent_num
+    name: SDN_Name
+    sdnType: SDN_Type
+    program: Program
+    remarks: Remarks
+  compute:
+    sdnType: "CASE WHEN trim(r.sdnType) = '-0-' THEN null ELSE r.sdnType END"
+    remarks: "CASE WHEN trim(r.remarks) = '-0-' THEN null ELSE r.remarks END"
+
+- name: sanctionedPartyByEntNum
+  kind: tabular
+  url: "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.CSV"
+  format: csv
+  columns: [ent_num, SDN_Name, SDN_Type, Program, Title, Call_Sign, Vess_type, Tonnage, GRT, Vess_flag, Vess_owner, Remarks]
+  keyColumn: ent_num
+  keyMatch: exact
+  keyAs: entNumQueried
+  userAgent: browser
+  fileCacheSeconds: 86400
+  maxRows: 50000
+  maxRowsPerKey: 1
+  project:
+    entNum: ent_num
+    name: SDN_Name
+    sdnType: SDN_Type
+    program: Program
+    remarks: Remarks
+  compute:
+    sdnType: "CASE WHEN trim(r.sdnType) = '-0-' THEN null ELSE r.sdnType END"
+    remarks: "CASE WHEN trim(r.remarks) = '-0-' THEN null ELSE r.remarks END"
+
+- name: sanctionsAliasByName
+  kind: tabular
+  url: "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/ALT.CSV"
+  format: csv
+  columns: [ent_num, alt_num, alt_type, alt_name, alt_remarks]
+  keyColumn: alt_name
+  keyMatch: ci
+  keyAs: nameQueried
+  userAgent: browser
+  fileCacheSeconds: 86400
+  maxRows: 50000
+  maxRowsPerKey: 20
+  project:
+    altNum: alt_num
+    entNum: ent_num
+    altType: alt_type
+    altName: alt_name
