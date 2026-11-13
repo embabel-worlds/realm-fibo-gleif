@@ -1,7 +1,9 @@
 # The judgement that propagates down the chain: an entity is SanctionsExposed when one of its GLEIF
 # names is on OFAC's SDN list (by primary name or alias), or when the entity it is consolidated by
-# is SanctionsExposed. Two base clauses and one recursive one, to the fixpoint; `exposedVia` carries
-# the listed name down so the conclusion names its reason. A reachability-only conclusion would be a
+# is SanctionsExposed. Two base clauses and one recursive one, to the fixpoint. Each rule stamps its
+# own properties and aggregates its body to one row per member: rules are unordered clauses, so the
+# engine refuses to read a property two rows of one body would set differently (Rosneft matches two
+# aliases), and a property set by one rule is never overwritten by another. A reachability-only conclusion would be a
 # path, not a rule (§13.5); this one is a rule because the base is a judgement (a name match of
 # declared quality) and the recursion propagates it.
 #
@@ -11,15 +13,20 @@ name: fibo-gleif/sanctions-exposed
 derives: SanctionsExposed
 description: >-
   A legal entity named on OFAC's SDN list under one of its GLEIF names, or consolidated (directly
-  or through any number of parents) by one that is. `exposedVia` is the listed name, `matchedBy`
-  how it matched: the SDN primary name or an alias. A name match is a lead, not a finding.
+  or through any number of parents) by one that is. Each rule stamps its own properties, aggregated
+  so a member has one row per rule: `sdnNames` and `programmes` for a legal-name match,
+  `sdnNamesByAlias`, `aliasesMatched` and `programmesByAlias` for an alias match, `exposedParents`
+  for exposure inherited up the chain. A name match is a lead, not a finding.
 rules:
-  - derive: "(e:SanctionsExposed {exposedVia: s.name, programme: s.program, matchedBy: 'legal name'})"
+  - derive: "(e:SanctionsExposed {sdnNames: listed, programmes: programmes})"
     from: |
       MATCH (e:LegalEntity)-[:NAMED_ON_SDN]->(s:SanctionedParty)
-  - derive: "(e:SanctionsExposed {exposedVia: s.name, programme: s.program, matchedBy: 'alias ' + a.altName})"
+      WITH e, collect(DISTINCT s.name) AS listed, collect(DISTINCT s.program) AS programmes
+  - derive: "(e:SanctionsExposed {sdnNamesByAlias: listed, aliasesMatched: aliases, programmesByAlias: programmes})"
     from: |
       MATCH (e:LegalEntity)-[:ALIAS_ON_SDN]->(a:SanctionsAlias)-[:ALIAS_OF]->(s:SanctionedParty)
-  - derive: "(c:SanctionsExposed {exposedVia: p.exposedVia, programme: p.programme, matchedBy: 'parent ' + p.legalName})"
+      WITH e, collect(DISTINCT s.name) AS listed, collect(DISTINCT a.altName) AS aliases, collect(DISTINCT s.program) AS programmes
+  - derive: "(c:SanctionsExposed {exposedParents: parents})"
     from: |
       MATCH (c:LegalEntity)-[:IS_SUBSIDIARY_OF]->(p:SanctionsExposed)
+      WITH c, collect(DISTINCT p.legalName) AS parents

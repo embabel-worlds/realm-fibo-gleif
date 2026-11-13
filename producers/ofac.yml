@@ -31,6 +31,7 @@
   compute:
     sdnType: "CASE WHEN trim(r.sdnType) = '-0-' THEN null ELSE r.sdnType END"
     remarks: "CASE WHEN trim(r.remarks) = '-0-' THEN null ELSE r.remarks END"
+    programmes: "split(r.program, '] [')"
 
 - name: sanctionedPartyByEntNum
   kind: tabular
@@ -53,6 +54,7 @@
   compute:
     sdnType: "CASE WHEN trim(r.sdnType) = '-0-' THEN null ELSE r.sdnType END"
     remarks: "CASE WHEN trim(r.remarks) = '-0-' THEN null ELSE r.remarks END"
+    programmes: "split(r.program, '] [')"
 
 - name: sanctionsAliasByName
   kind: tabular

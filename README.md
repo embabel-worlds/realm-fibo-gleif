@@ -79,22 +79,31 @@ POST /api/v1/views/CounterpartyExposure/invoke
 ```
 
 **Host requirement for the OFAC half.** OFAC's CSV exports have no header row. The `tabular`
-producer's `columns:` field (realm-spec `VIRTUAL_CYPHER.md` §5.8; host change embabel/me#3857) names
-them. On a host without it the sanctions producers fail loudly, naming the file and the columns they
-found, and `SanctionsExposureOf` and `CounterpartyExposure` return `SOURCE_UNAVAILABLE` rather than an
-empty answer; everything over GLEIF alone still runs. `producers/ofac.yml` is its own file so that is
-all that is lost.
+producer's `columns:` field (realm-spec `VIRTUAL_CYPHER.md` §5.8) names them; it is in the appliance
+from build `sha-53c92c5` (13 November 2026, embabel/me#3857). On an older host the sanctions producers
+fail loudly, naming the file and the columns they found, and `SanctionsExposureOf` and
+`CounterpartyExposure` return `SOURCE_UNAVAILABLE` rather than an empty answer; everything over GLEIF
+alone still runs. `producers/ofac.yml` is its own file so that is all that is lost.
+
+**Exporting it.** `ontology-io export owl .` gives the model back under FIBO's and GLEIF's IRIs:
+`cmns-org:LegalEntity`, `fibo-be-oac-cctl:isSubsidiaryOf`, and the three roles as `owl:equivalentClass`
+definitions (`Subsidiary ≡ LegalEntity and isSubsidiaryOf some LegalEntity`; `SanctionsExposed` a union
+of three branches, one of them recursive). The report reads 18 exact, 14 noted (the producers, which
+bind a live system, and the properties the rules compute, which OWL cannot say), 6 refused (the views;
+OWL has no form for a query). `export okf .` writes 22 files with nothing refused. The exporter reads
+rules written by hand from the ontology-io change in embabel/me that followed this realm's first export.
 
 ## Verification, 13 November 2026
 
 Every figure below was read from the GLEIF API directly with `curl`, then from the realm installed on
-an appliance (image `sha-063c0fa`), and the two agree.
+an appliance (image `sha-063c0fa` for the GLEIF half, `sha-53c92c5` for the OFAC half), and the two
+agree.
 
 | Counterparty | GLEIF says | The realm says (`CounterpartyControlChains`) |
 |---|---|---|
 | Apple Operations International Limited (IE) | direct and ultimate parent Apple Inc. (US); relationship since 2017-12-13, `ENTITY_SUPPLIED_ONLY`; Apple Inc. reports `NATURAL_PERSONS` | chain `APPLE OPERATIONS INTERNATIONAL LIMITED -> Apple Inc.`, 1 hop, record `HWUPKR0MPOU8FGXBT394`, ends `NATURAL_PERSONS`; `ConsolidationEvidenceOf` gives since 2017-12-13, accounting period 2022, `ENTITY_SUPPLIED_ONLY` |
-| Rosneft Deutschland GmbH (DE) | direct parent PAO NK Rosneft (RU, `253400JT3MQWNDKMJE44`), which reports `NO_KNOWN_PERSON` | the same chain, 1 hop; the sanctions match needs the OFAC half (above) |
-| OOO RN-Kapital (RU) | a direct child of PAO NK Rosneft | chain to Rosneft, 1 hop |
+| Rosneft Deutschland GmbH (DE) | direct parent PAO NK Rosneft (RU, `253400JT3MQWNDKMJE44`), which reports `NO_KNOWN_PERSON`; OFAC lists SDN 17022 `OPEN JOINT-STOCK COMPANY ROSNEFT OIL COMPANY` under `[UKRAINE-EO13662] [RUSSIA-EO14024]` with aliases `ROSNEFT OIL COMPANY` and `ROSNEFT`, both GLEIF alternative names of the parent | the same chain, 1 hop; `exposed: true` with two hits, one per alias, each naming the SDN entry and its programmes; the parent carries `SanctionsExposed` with `aliasesMatched` both aliases and the child inherits it with `exposedParents` |
+| OOO RN-Kapital (RU) | a direct child of PAO NK Rosneft | chain to Rosneft, 1 hop; exposed through the same two alias hits |
 | SEFE Marketing & Trading Switzerland AG (CH) | parent SEFE Marketing & Trading Limited (GB), which reports no parent (`NO_LEI`) | the same, 1 hop |
 | SEFE Energy Limited (GB) | parent SEFE Energy GmbH (DE), `NO_LEI` above it | the same, 1 hop |
 | Gazprom Austria GmbH (AT) | no parent; exception `NON_CONSOLIDATING` | no chain, `whyTheChainEnds: NON_CONSOLIDATING` |
@@ -103,7 +112,14 @@ an appliance (image `sha-063c0fa`), and the two agree.
 
 `SubsidiariesOf` for Apple Inc. returns the 8 entities GLEIF lists as its direct children, the same
 8 the API returns. The whole watch list walks in one view with 6 external calls once the entity
-records are warm.
+records are warm. `CounterpartyExposure` over all eight returns the two Rosneft entities exposed and
+the other six clean, in 7 seconds cold (20 external calls, OFAC's two files among them) and under a
+second warm.
+
+One thing the engine caught: the first alias rule concluded `matchedBy` from a body that yields two
+rows for Rosneft (two aliases match), and a query reading the label was refused with the reason that
+rules are unordered clauses, so the property had no defined value. The rule now aggregates its body
+to one row per member and each rule stamps its own properties.
 
 Measured costs: an unseen LEI's record takes one GLEIF call; its chain takes one `direct-parent`
 call per hop plus one `reporting-exception` call at the top; the first view over an entity ran in

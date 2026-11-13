@@ -18,7 +18,8 @@
       description: "OFAC's ent_num, the stable id of the entry."
     name: "The primary SDN name as OFAC prints it (upper case)."
     sdnType: "individual, vessel, aircraft, or empty for an entity."
-    program: "The sanctions programme(s), e.g. UKRAINE-EO13662, RUSSIA-EO14024, SDGT."
+    program: "The sanctions programme(s) as OFAC prints the field: several read `UKRAINE-EO13662] [RUSSIA-EO14024`, the brackets between them."
+    programmes: "The programmes as a list, split from `program`."
     remarks: "OFAC's remarks: registration ids, tax ids, directives, websites, linked parties."
   virtualJoins:
     - anchorLabel: LegalEntity

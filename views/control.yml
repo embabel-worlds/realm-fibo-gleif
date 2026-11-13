@@ -81,10 +81,10 @@
     OPTIONAL MATCH (e)-[:IS_SUBSIDIARY_OF*1..6]->(n:LegalEntity)-[:NAMED_ON_SDN]->(s1:SanctionedParty)
     OPTIONAL MATCH (e)-[:IS_SUBSIDIARY_OF*1..6]->(m:LegalEntity)-[:ALIAS_ON_SDN]->(a1:SanctionsAlias)-[:ALIAS_OF]->(t1:SanctionedParty)
     WITH e, p, top,
-         collect(DISTINCT CASE WHEN s0 IS NOT NULL THEN e.legalName + ' is listed as ' + s0.name + ' (' + s0.program + '), matched on its legal name' END)
-         + collect(DISTINCT CASE WHEN t0 IS NOT NULL THEN e.legalName + ' is listed as ' + t0.name + ' (' + t0.program + '), matched on the alias ' + a0.altName END)
-         + collect(DISTINCT CASE WHEN s1 IS NOT NULL THEN n.legalName + ' is listed as ' + s1.name + ' (' + s1.program + '), matched on its legal name' END)
-         + collect(DISTINCT CASE WHEN t1 IS NOT NULL THEN m.legalName + ' is listed as ' + t1.name + ' (' + t1.program + '), matched on the alias ' + a1.altName END) AS hits
+         collect(DISTINCT CASE WHEN s0 IS NOT NULL THEN e.legalName + ' is listed as ' + s0.name + ' [' + s0.program + '], matched on its legal name' END)
+         + collect(DISTINCT CASE WHEN t0 IS NOT NULL THEN e.legalName + ' is listed as ' + t0.name + ' [' + t0.program + '], matched on the alias ' + a0.altName END)
+         + collect(DISTINCT CASE WHEN s1 IS NOT NULL THEN n.legalName + ' is listed as ' + s1.name + ' [' + s1.program + '], matched on its legal name' END)
+         + collect(DISTINCT CASE WHEN t1 IS NOT NULL THEN m.legalName + ' is listed as ' + t1.name + ' [' + t1.program + '], matched on the alias ' + a1.altName END) AS hits
     WITH e, p, top, [h IN hits WHERE h IS NOT NULL] AS hits
     RETURN e.lei AS lei, e.legalName AS entity, e.country AS country,
            [n IN coalesce(nodes(p), [e]) | n.legalName] AS chain,
@@ -107,10 +107,10 @@
     OPTIONAL MATCH (e)-[:IS_SUBSIDIARY_OF*1..6]->(n:LegalEntity)-[:NAMED_ON_SDN]->(s1:SanctionedParty)
     OPTIONAL MATCH (e)-[:IS_SUBSIDIARY_OF*1..6]->(m:LegalEntity)-[:ALIAS_ON_SDN]->(a1:SanctionsAlias)-[:ALIAS_OF]->(t1:SanctionedParty)
     WITH c, e, p, top,
-         collect(DISTINCT CASE WHEN s0 IS NOT NULL THEN e.legalName + ' is listed as ' + s0.name + ' (' + s0.program + '), matched on its legal name' END)
-         + collect(DISTINCT CASE WHEN t0 IS NOT NULL THEN e.legalName + ' is listed as ' + t0.name + ' (' + t0.program + '), matched on the alias ' + a0.altName END)
-         + collect(DISTINCT CASE WHEN s1 IS NOT NULL THEN n.legalName + ' is listed as ' + s1.name + ' (' + s1.program + '), matched on its legal name' END)
-         + collect(DISTINCT CASE WHEN t1 IS NOT NULL THEN m.legalName + ' is listed as ' + t1.name + ' (' + t1.program + '), matched on the alias ' + a1.altName END) AS hits
+         collect(DISTINCT CASE WHEN s0 IS NOT NULL THEN e.legalName + ' is listed as ' + s0.name + ' [' + s0.program + '], matched on its legal name' END)
+         + collect(DISTINCT CASE WHEN t0 IS NOT NULL THEN e.legalName + ' is listed as ' + t0.name + ' [' + t0.program + '], matched on the alias ' + a0.altName END)
+         + collect(DISTINCT CASE WHEN s1 IS NOT NULL THEN n.legalName + ' is listed as ' + s1.name + ' [' + s1.program + '], matched on its legal name' END)
+         + collect(DISTINCT CASE WHEN t1 IS NOT NULL THEN m.legalName + ' is listed as ' + t1.name + ' [' + t1.program + '], matched on the alias ' + a1.altName END) AS hits
     WITH c, e, p, top, [h IN hits WHERE h IS NOT NULL] AS hits
     RETURN c.name AS counterparty, e.lei AS lei, e.country AS country,
            [n IN coalesce(nodes(p), [e]) | n.legalName] AS chain,
