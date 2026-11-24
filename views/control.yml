@@ -10,13 +10,15 @@
 
 - name: ControlChainOf
   description: >-
-    Who ultimately controls this entity, and through whom: the IS_SUBSIDIARY_OF chain from the LEI
+    Who ultimately controls one entity, by LEI, and through whom. The IS_SUBSIDIARY_OF chain from the LEI
     to the entity that reports no parent, each hop citing the GLEIF record that asserts it, and
-    GLEIF's stated reason the chain ends where it does.
+    GLEIF's stated reason the chain ends where it does. Accounting consolidation only (not
+    ownership by people, which GLEIF does not record), at most six hops; one row.
   params:
     lei:
       type: string
-      description: "The entity's LEI, e.g. 549300G81RQKP7XW2N18 (Apple Operations International)."
+      required: true
+      description: "The entity's LEI, exactly (20 characters), e.g. 549300G81RQKP7XW2N18 (Apple Operations International)."
   cypher: |
     MATCH (e:LegalEntity {lei: $lei})
     OPTIONAL MATCH p = (e)-[:IS_SUBSIDIARY_OF*1..6]->(top:LegalEntity)
@@ -37,12 +39,14 @@
 
 - name: ConsolidationEvidenceOf
   description: >-
-    The GLEIF relationship record behind an entity's IS_SUBSIDIARY_OF edge: who consolidates it,
-    since when, under which accounting period, with what corroboration.
+    The GLEIF record that says who directly consolidates one entity, and since when.
+    Under which accounting period and with what corroboration. Direct parent only, one row or
+    none; for the chain to the top use ControlChainOf.
   params:
     lei:
       type: string
-      description: "The consolidated entity's LEI."
+      required: true
+      description: "The consolidated entity's LEI, exactly (20 characters)."
   cypher: |
     MATCH (e:LegalEntity {lei: $lei})-[:CONSOLIDATION]->(r:ConsolidationRecord)
     RETURN e.legalName AS entity, r.parentLei AS consolidatedBy, r.relationshipType AS relationship,
@@ -51,11 +55,12 @@
            r.corroborationDocuments AS corroboratedFrom, r.lastUpdated AS gleifLastUpdated
 
 - name: SubsidiariesOf
-  description: "The entities GLEIF records as directly consolidated by this one (FIBO: the entities it is controlling affiliate of)."
+  description: "Direct subsidiaries of one entity, by LEI, as GLEIF records them. The entities GLEIF records as directly consolidated by this one (FIBO: those it is controlling affiliate of). One level only, not grandchildren; up to 1000 rows (GLEIF pages of 200, 5 pages)."
   params:
     lei:
       type: string
-      description: "The parent's LEI, e.g. HWUPKR0MPOU8FGXBT394 (Apple Inc.)."
+      required: true
+      description: "The parent's LEI, exactly (20 characters), e.g. HWUPKR0MPOU8FGXBT394 (Apple Inc.)."
   cypher: |
     MATCH (p:LegalEntity {lei: $lei})-[:IS_CONTROLLING_AFFILIATE_OF]->(s:LegalEntity)
     RETURN s.lei AS lei, s.legalName AS subsidiary, s.country AS country, s.status AS status, s.legalForm AS legalForm
@@ -71,7 +76,8 @@
   params:
     lei:
       type: string
-      description: "The entity's LEI, e.g. 391200PKEUF3Y2NUMW25 (Rosneft Deutschland GmbH)."
+      required: true
+      description: "The entity's LEI, exactly (20 characters), e.g. 391200PKEUF3Y2NUMW25 (Rosneft Deutschland GmbH)."
   cypher: |
     MATCH (e:LegalEntity {lei: $lei})
     OPTIONAL MATCH p = (e)-[:IS_SUBSIDIARY_OF*1..6]->(top:LegalEntity)
@@ -94,7 +100,8 @@
 
 - name: CounterpartyExposure
   description: >-
-    The watch list (reference/counterparties.yml), each counterparty walked to its ultimate parent
+    Which watch-list counterparties are controlled by an OFAC-sanctioned entity. The watch list
+    (reference/counterparties.yml), each counterparty walked to its ultimate parent
     and every name on the chain checked against OFAC's SDN list and aliases. The question on stage:
     which of our counterparties are ultimately controlled by a sanctioned entity, and through which
     chain. Exposed rows first.
@@ -121,7 +128,7 @@
 
 - name: CounterpartyControlChains
   description: >-
-    The watch list walked to its ultimate parents, without the sanctions join: who controls each
+    Who ultimately controls each watch-list counterparty, without sanctions. Who controls each
     counterparty, through whom, and why each chain ends where it does. The GLEIF half of
     CounterpartyExposure on its own, for a host whose tabular reader cannot yet read OFAC's
     headerless files, and for the control question asked alone.
