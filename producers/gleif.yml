@@ -15,7 +15,9 @@
   keyTemplate: "{key}"
   keyJoin: ","
   maxKeysPerCall: 200
-  cache: { kind: ttl, seconds: 86400 }
+  # By design a listing, not GET /lei-records/{lei}: filter[lei] takes 200 LEIs in one call, where
+  # the by-id read takes one. An LEI GLEIF does not know answers empty, and that is remembered too.
+  cache: { kind: ttl, seconds: 86400, negativeTtlSeconds: 86400 }
   cost: { bucket: gleif, rate: 4/sec, yield: high }
   # GLEIF filters the listing itself on status and legal-address country, so a literal predicate on
   # either narrows the fetch at the source; a key the filter excludes is simply not returned.
@@ -48,6 +50,8 @@
   keyArgs: [lei]
   echoKeyAs: childLei
   batchSafe: false
+  # A single related record, addressed by the child's LEI in the path: GLEIF takes no filter on it.
+  pushdown: []
   emptyErrorPatterns: ["Related resource not found"]
   cache: { kind: ttl, seconds: 86400, negativeTtlSeconds: 86400 }
   cost: { bucket: gleif, rate: 4/sec, yield: high }
@@ -76,6 +80,8 @@
   keyArgs: [lei]
   echoKeyAs: childLei
   batchSafe: false
+  # A single related record, addressed by the child's LEI in the path: GLEIF takes no filter on it.
+  pushdown: []
   emptyErrorPatterns: ["Related resource not found"]
   cache: { kind: ttl, seconds: 86400, negativeTtlSeconds: 86400 }
   cost: { bucket: gleif, rate: 4/sec, yield: high }
@@ -136,6 +142,8 @@
   keyArgs: [lei]
   echoKeyAs: childLei
   batchSafe: false
+  # A single related record, addressed by the child's LEI in the path: GLEIF takes no filter on it.
+  pushdown: []
   emptyErrorPatterns: ["Related resource not found"]
   cache: { kind: ttl, seconds: 86400, negativeTtlSeconds: 86400 }
   cost: { bucket: gleif, rate: 4/sec, yield: high }
@@ -165,6 +173,8 @@
   keyArgs: [lei]
   echoKeyAs: forLei
   batchSafe: false
+  # A single related record, addressed by the child's LEI in the path: GLEIF takes no filter on it.
+  pushdown: []
   emptyErrorPatterns: ["Related resource not found"]
   cache: { kind: ttl, seconds: 86400, negativeTtlSeconds: 86400 }
   cost: { bucket: gleif, rate: 4/sec, yield: high }

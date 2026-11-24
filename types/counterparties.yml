@@ -11,5 +11,5 @@
     lei:
       identity: true
       description: "The counterparty's LEI."
-    name: "The name the list keeps it under."
-    note: "Why it is on the list, or what to expect."
+    name: "The name the watch list keeps it under; free text, may differ from GLEIF's legal name."
+    note: "Why it is on the list, or what to expect from it, in the list owner's words."

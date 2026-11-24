@@ -39,11 +39,12 @@
       producer: sanctionedPartyByEntNum
       maxAnchors: 500
       maxFanoutTotal: 500
-      description: "The SDN entry an alias belongs to."
+      description: "`(a:SanctionsAlias)-[:ALIAS_OF]->(s:SanctionedParty)`: the one SDN entry this alias belongs to, by OFAC entity number, read from the day's cached SDN file (no per-alias call)."
 
 - name: SanctionsAlias
   description: >-
-    An alias (a.k.a., f.k.a., n.k.a.) OFAC lists for an SDN entry, from OFAC's ALT.CSV. Rosneft's
+    One alias (a.k.a., f.k.a., n.k.a.) OFAC lists for an SDN entry, identified by OFAC's alt_num
+    (`altNum`), from OFAC's ALT.CSV; `entNum` names its entry. Rosneft's
     entry is "OPEN JOINT-STOCK COMPANY ROSNEFT OIL COMPANY"; its aliases include "ROSNEFT OIL
     COMPANY" and "ROSNEFT", which is what GLEIF records as its alternative-language legal name.
   properties:

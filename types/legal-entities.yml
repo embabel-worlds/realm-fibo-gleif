@@ -43,16 +43,16 @@
       cardinality: LIST
       description: "GLEIF's otherNames: alternative-language legal names, trading names, previous names."
     jurisdiction: "ISO 3166 country or region of incorporation, e.g. US-CA."
-    status: "ACTIVE or INACTIVE."
-    category: "GLEIF's entity category: GENERAL, FUND, BRANCH, SOLE_PROPRIETOR, …"
+    status: "`ACTIVE` or `INACTIVE` (upper case): whether the legal entity itself still operates, not the LEI's registration. Pushed to GLEIF as filter[entity.status]."
+    category: "GLEIF's entity category, upper case: `GENERAL`, `FUND`, `BRANCH`, `SOLE_PROPRIETOR`, `RESIDENT_GOVERNMENT_ENTITY` or `INTERNATIONAL_ORGANIZATION`; empty when unreported."
     legalForm: "ISO 20275 Entity Legal Form code, e.g. 2HBR (GmbH), H1UM (Delaware corporation)."
-    country: "Country of the legal address."
-    city: "City of the legal address."
+    country: "Country of the legal address, ISO 3166-1 alpha-2 upper case (DE, US). Pushed to GLEIF as filter[entity.legalAddress.country]."
+    city: "City of the legal address, as the registrant wrote it (often upper case or in the local language)."
     registeredAs: "The entity's id in its business register (e.g. HRB 184025)."
     registrationAuthority: "GLEIF Registration Authority code of that register (e.g. RA000217, Handelsregister)."
-    creationDate: "When the entity was created, as GLEIF records it."
-    registrationStatus: "The LEI registration's status: ISSUED, LAPSED, RETIRED, …"
-    lastUpdated: "When GLEIF last updated the LEI record."
+    creationDate: "The business date the entity was legally created, ISO 8601 date-time UTC at midnight (1977-01-03T00:00:00Z); empty when unreported."
+    registrationStatus: "The LEI registration's status, upper case: `ISSUED`, `LAPSED`, `RETIRED`, `MERGED`, `ANNULLED`, `DUPLICATE`, `TRANSFERRED`, `PENDING_TRANSFER`, `PENDING_ARCHIVAL`. LAPSED = not renewed, entity may live."
+    lastUpdated: "When GLEIF last updated the LEI record (system clock), ISO 8601 date-time UTC."
   virtualJoins:
     - anchorLabel: LegalEntityQuery
       relationship: IS
@@ -60,7 +60,7 @@
       recordKeyField: lei
       materializedKeyField: lei
       producer: legalEntityByLei
-      description: "The entity with this LEI. Up to 200 LEIs per GLEIF call."
+      description: "The entity with this LEI: `MATCH (e:LegalEntity {lei: '…'})` reaches it with no door written. Zero or one; up to 200 LEIs per GLEIF call, cached a day (misses too)."
     - anchorLabel: Counterparty
       relationship: IS
       keyField: lei
@@ -103,10 +103,29 @@
         GLEIF's own answer to "who is at the top": the ultimate accounting consolidating parent, one
         call. Agrees with the IS_SUBSIDIARY_OF walk when every intermediate entity has an LEI; differs
         when the chain passes through an entity GLEIF cannot name.
+  examples:
+    # STEERING. Start from an LEI (or the Counterparty watch list) and walk IS_SUBSIDIARY_OF up;
+    # IS_CONTROLLING_AFFILIATE_OF goes down. A name is never the way in: GLEIF is fetched by LEI.
+    - q: "who ultimately controls Apple Operations International"
+      cypher: |
+        MATCH p = (e:LegalEntity {lei: '549300G81RQKP7XW2N18'})-[:IS_SUBSIDIARY_OF*1..6]->(top:LegalEntity)
+        WHERE NOT (top)-[:IS_SUBSIDIARY_OF]->(:LegalEntity)
+        RETURN top.legalName AS ultimateParent, top.country AS country, length(p) AS hops,
+               [n IN nodes(p) | n.legalName] AS chain
+    - q: "which German subsidiaries does Apple Inc. consolidate directly"
+      cypher: |
+        MATCH (:LegalEntity {lei: 'HWUPKR0MPOU8FGXBT394'})-[:IS_CONTROLLING_AFFILIATE_OF]->(s:LegalEntity)
+        WHERE s.country = 'DE'
+        RETURN s.lei AS lei, s.legalName AS subsidiary, s.status AS status
+    - q: "is any counterparty on the watch list named on the OFAC SDN list"
+      cypher: |
+        MATCH (c:Counterparty)-[:IS]->(e:LegalEntity)-[:NAMED_ON_SDN]->(s:SanctionedParty)
+        RETURN c.name AS counterparty, s.name AS sdnName, s.program AS program
 
 - name: ConsolidationRecord
   description: >-
-    GLEIF's relationship record behind an IS_SUBSIDIARY_OF edge: since when the child has been
+    One GLEIF Level 2 relationship record, identified by GLEIF's record `id`: the evidence behind a
+    child's IS_SUBSIDIARY_OF edge. Since when the child has been
     consolidated by the parent (the relationship period), the accounting period it was last
     asserted for, its status, and how GLEIF corroborated it (FULLY_CORROBORATED,
     PARTIALLY_CORROBORATED, ENTITY_SUPPLIED_ONLY). The evidence for a hop, as a node.
@@ -114,18 +133,18 @@
     id:
       identity: true
       description: "GLEIF's id for the relationship record."
-    childLei: "The consolidated entity."
-    parentLei: "The consolidating entity."
-    relationshipType: "IS_DIRECTLY_CONSOLIDATED_BY."
-    status: "ACTIVE or INACTIVE."
-    since: "Start of the relationship period GLEIF records."
-    validFrom: "When this version of the record became valid."
-    validTo: "When it ceased to, if it has."
-    accountingPeriodStart: "Start of the accounting period the consolidation was last asserted for."
-    accountingPeriodEnd: "End of that accounting period."
-    corroboration: "GLEIF's corroboration level for the relationship."
-    corroborationDocuments: "The document class GLEIF corroborated it from."
-    lastUpdated: "When GLEIF last updated the record."
+    childLei: "The LEI of the consolidated (child) entity this record was fetched for."
+    parentLei: "The LEI of the consolidating (parent) entity."
+    relationshipType: "Always `IS_DIRECTLY_CONSOLIDATED_BY` here: the direct accounting-consolidation relationship."
+    status: "`ACTIVE` or `INACTIVE`: whether the consolidation still holds."
+    since: "Business date the relationship began (its RELATIONSHIP_PERIOD start), ISO 8601 date-time UTC; empty when unreported."
+    validFrom: "When this version of the record became valid in GLEIF (system clock), ISO 8601 date-time UTC."
+    validTo: "When this version ceased to be valid, ISO 8601 date-time UTC; empty while it is current."
+    accountingPeriodStart: "Start of the accounting period the consolidation was last asserted for, ISO 8601 date-time UTC."
+    accountingPeriodEnd: "End of that accounting period, ISO 8601 date-time UTC."
+    corroboration: "How GLEIF corroborated it: `FULLY_CORROBORATED`, `PARTIALLY_CORROBORATED` or `ENTITY_SUPPLIED_ONLY` (the weakest: the entity's word). A level, not a ratio: no unit."
+    corroborationDocuments: "The class of document it was corroborated from, e.g. `ACCOUNTS_FILING`, `REGULATORY_FILING`, `SUPPORTING_DOCUMENTS`, `OTHER_OFFICIAL_DOCUMENTS`; a code, not a count."
+    lastUpdated: "When GLEIF last updated the record (system clock), ISO 8601 date-time UTC."
   virtualJoins:
     - anchorLabel: LegalEntity
       relationship: CONSOLIDATION
@@ -134,11 +153,12 @@
       producer: consolidationOfLegalEntity
       maxAnchors: 200
       maxFanoutTotal: 200
-      description: "`(child:LegalEntity)-[:CONSOLIDATION]->(r:ConsolidationRecord)`: the record behind the child's IS_SUBSIDIARY_OF edge."
+      description: "`(child:LegalEntity)-[:CONSOLIDATION]->(r:ConsolidationRecord)`: the record behind the child's IS_SUBSIDIARY_OF edge, zero or one. One GLEIF call per child, cached a day. For since-when and how well corroborated; for who the parent is, IS_SUBSIDIARY_OF is cheaper to read."
 
 - name: ReportingException
   description: >-
-    Why GLEIF reports no direct parent for an entity: NO_LEI (the parent has none),
+    One GLEIF reporting exception, identified by GLEIF's record `id`: why an entity reports no direct
+    parent. Reasons: NO_LEI (the parent has none),
     NON_CONSOLIDATING (nobody consolidates it: it is the top of its own tree), NATURAL_PERSONS
     (owned by people), NON_PUBLIC, BINDING_LEGAL_COMMITMENTS, and the rest of GLEIF's reason list.
     An absent parent is a stated fact here, not a gap.
@@ -146,10 +166,10 @@
     id:
       identity: true
       description: "GLEIF's id for the exception record."
-    forLei: "The entity the exception is reported for."
-    category: "DIRECT_ACCOUNTING_CONSOLIDATION_PARENT."
-    reason: "GLEIF's reason code."
-    reference: "Free text GLEIF attaches, when any."
+    forLei: "The LEI of the entity the exception is reported for."
+    category: { type: string, values: [DIRECT_ACCOUNTING_CONSOLIDATION_PARENT], description: "Always `DIRECT_ACCOUNTING_CONSOLIDATION_PARENT` here (the ultimate-parent exception is not fetched)." }
+    reason: "GLEIF's reason code, upper case: `NATURAL_PERSONS`, `NON_CONSOLIDATING`, `NO_KNOWN_PERSON`, `NO_LEI`, `NON_PUBLIC`, `BINDING_LEGAL_COMMITMENTS`, `LEGAL_OBSTACLES`, `CONSENT_NOT_OBTAINED`, `DETRIMENT_NOT_EXCLUDED`, `DISCLOSURE_DETRIMENTAL`."
+    reference: "Free text GLEIF attaches, when any; usually empty."
   virtualJoins:
     - anchorLabel: LegalEntity
       relationship: NO_PARENT_REPORTED
@@ -158,4 +178,4 @@
       producer: reportingExceptionOfLegalEntity
       maxAnchors: 200
       maxFanoutTotal: 200
-      description: "`(e:LegalEntity)-[:NO_PARENT_REPORTED]->(x:ReportingException)`: GLEIF's reason the chain ends here."
+      description: "`(e:LegalEntity)-[:NO_PARENT_REPORTED]->(x:ReportingException)`: GLEIF's stated reason the control chain ends at this entity, zero or one. One GLEIF call per entity, cached a day; read it on the top of an IS_SUBSIDIARY_OF walk."
