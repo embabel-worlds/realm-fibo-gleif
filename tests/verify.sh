@@ -28,6 +28,45 @@ def check(name, ok, detail=""):
     print(("  ok   " if ok else "  FAIL ") + name + (("  (" + str(detail) + ")") if detail != "" else ""))
     if not ok: fail = 1
 
+# A figure is only this realm's figure when the engine says the answer is whole. A source that failed
+# or was capped, a hop cut short, a value a step could not work out: each leaves rows that still look
+# like an answer, and counting them reports drift that is not the realm's. short() reads the answer's
+# own verdict — `error`, `run`, `reason` and the codes `warnings` open with on a query; `status`,
+# `outcome` and the warning codes on a view — and is None when whole, else the line that stands in
+# for the figure: "REFUSED: <why>" or "PARTIAL <figure>: <the engine's reason>".
+SHORT_CODES = ("PARTIAL_RESULT", "PRODUCER_ERROR", "NEEDS_FILTER", "NEEDS_PRODUCER", "FILTER_REJECTED",
+               "UNPUSHED_FILTER", "AMBIGUOUS_LABEL", "INCOMPLETE_TRAVERSAL", "INCOMPLETE_RANKING",
+               "INCOMPLETE_AGGREGATE", "INCOMPLETE_INPUT", "MATERIALIZATION_FAILED", "REDUCTION_FAILED",
+               "UNPARSEABLE_ANSWER", "TERMS_UNAVAILABLE", "COMPUTE_FAILED", "PROPERTY_NOT_STORED",
+               "FOLLOW_CAPPED", "UNLINKED_CHILDREN", "RESOLUTION_DROPPED", "AGENTIC_DEGRADED", "SOURCE_UNANSWERED")
+SHORT_REASONS = ("UNBOUNDED", "PARTIAL_NOT_MATCHED", "UNPUSHED_FILTER", "DISCONNECTED",
+                 "INTERNAL_ERROR", "WRITE_IN_PROGRESS", "KILLED", "TOO_EXPENSIVE")
+SHORT_PUBLIC = ("PARTIAL", "REDUCTION_FAILED", "COMPUTE_FAILED", "PROPERTY_NOT_STORED", "AGENTIC_DEGRADED",
+                "RATE_LIMITED", "SOURCE_UNAVAILABLE", "SOURCE_REJECTED", "INVALID_FILTER", "UNPUSHED_FILTER",
+                "TOO_BROAD", "FETCH_CAPPED", "INDEX_UNAVAILABLE", "ARGUMENT_REFUSED")
+def short(d, figure=None):
+    tag = "PARTIAL" if figure is None else "PARTIAL %s" % (figure,)
+    if not isinstance(d, dict):
+        return "REFUSED: not an engine answer: " + str(d)[:160]
+    if "outcome" in d or "status" in d:
+        if d.get("status") != "SUCCEEDED":
+            e = d.get("error") or {}
+            e = (e.get("code", "") + " " + e.get("message", "")).strip() if isinstance(e, dict) else str(e)
+            return "REFUSED: %s %s" % (d.get("status"), e[:160])
+        ws = [w for w in d.get("warnings") or [] if isinstance(w, dict) and w.get("code") in SHORT_PUBLIC]
+        if d.get("outcome") not in ("OK", "EMPTY") or ws:
+            return "%s: %s" % (tag, (ws[0]["code"] + ": " + ws[0].get("message", "") if ws else "outcome %s" % d.get("outcome"))[:200])
+        return None
+    if d.get("error"):
+        return "REFUSED: " + str(d["error"])[:160]
+    if d.get("run"):
+        return "%s: the run had not finished (%s)" % (tag, d["run"])
+    ws = [w for w in d.get("warnings") or [] if isinstance(w, str) and w.split(":", 1)[0].strip() in SHORT_CODES]
+    if ws:
+        return "%s: %s" % (tag, ws[0][:200])
+    if d.get("reason") in SHORT_REASONS:
+        return "%s: reason %s" % (tag, d["reason"])
+    return None
 def invoke(name, args=None):
     req = urllib.request.Request(APPLIANCE + "/api/v1/views/%s/invoke" % name,
                                  json.dumps({"args": args or {}}).encode(), HDR, method="POST")
@@ -35,6 +74,10 @@ def invoke(name, args=None):
         v = json.load(r)
     if v.get("status") != "SUCCEEDED":
         raise SystemExit("view %s: %s %s" % (name, v.get("status"), json.dumps(v.get("error"))))
+    # A short answer stops the battery as a refusal does: GLEIF's figures cannot be held to a partial read.
+    why = short(v, len(v.get("data") or []))
+    if why:
+        raise SystemExit("  FAIL view %s %s: %s" % (name, json.dumps(args or {}), why))
     return v
 
 def calls(env): return (env.get("metrics") or {}).get("externalCalls")
